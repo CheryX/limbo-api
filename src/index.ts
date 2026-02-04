@@ -7,8 +7,6 @@ const port = 3000
 
 env.config();
 
-init_db();
-
 app.get('/', (req, res) => {
   res.status(200).json({
     status: "The void appears to be working..."
@@ -16,7 +14,7 @@ app.get('/', (req, res) => {
 })
 
 app.get('/files', async (req, res) => {
-  const data = await query("SELECT * FROM files WHERE size < ?;", ["10000"]);
+  const data = await query("SELECT * FROM files WHERE size < $1;", ["10000"]);
   res.json(data);
 })
 
@@ -27,4 +25,6 @@ app.get('/files2', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`The void appears on http://localhost:${port}`)
+
+  init_db();
 })

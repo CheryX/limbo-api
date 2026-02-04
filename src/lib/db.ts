@@ -1,11 +1,13 @@
 import { Pool } from 'pg';
 import fs from 'fs';
 
+console.log("Attempting to connect with user:", process.env.DB_USER);
+
 const pool = new Pool({
     user: process.env.DB_USER,
     host: process.env.DB_HOST,
     database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
+    password: String(process.env.DB_PASSWORD),
     port: 5432,
 });
 
