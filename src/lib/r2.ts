@@ -46,6 +46,10 @@ export async function putFile(user_id: string, name: string, location: string, b
     const query = `INSERT INTO files (user_id, filename, filepath) VALUES ($1, $2, $3) RETURNING id`;
     const values = [user_id, name, key];
     const response = await DB(query, values); 
+
+    if (response === -1) {
+        throw new Error("Database insertion failed");
+    }
     
     return { s3Data: data, fileId: response[0].id, s3Key: key };
 
