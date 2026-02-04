@@ -1,7 +1,8 @@
 import { Pool } from 'pg';
 import fs from 'fs';
+import env from 'dotenv';
 
-console.log("Attempting to connect with user:", process.env.DB_USER);
+env.config();
 
 const pool = new Pool({
     user: process.env.DB_USER,
@@ -12,7 +13,6 @@ const pool = new Pool({
 });
 
 export default async function query(text: string, params: any[] = []) {
-    const start = Date.now();
     try {
         const res = await pool.query(text, params);
         return res.rows;
