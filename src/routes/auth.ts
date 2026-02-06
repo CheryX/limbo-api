@@ -17,8 +17,8 @@ router.get('/callback',
   (req: Request, res: Response, next: NextFunction) => {
     const callbackUrl = `${req.protocol}://${req.get('host')}/auth/callback`;
     passport.authenticate('usos', { 
-        callbackURL: callbackUrl,
-        failureRedirect: '/login' 
+      callbackURL: callbackUrl,
+      failureRedirect: '/login' 
     } as any)(req, res, next);
   },
   (req: Request, res: Response) => {

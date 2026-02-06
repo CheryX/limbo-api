@@ -34,8 +34,8 @@ class UsosStrategy extends OAuth1Strategy {
           const profile = {
             provider: 'usos',
             id: json.id,
-            first_name: json.first_name,
-            last_name: json.last_name,
+            // first_name: json.first_name,
+            // last_name: json.last_name,
             _raw: body,
             _json: json
           };
@@ -60,7 +60,7 @@ passport.use(new UsosStrategy({
   (token: string, tokenSecret: string, profile: any, done: any) => {
      const user = {
          id: profile.id,
-         name: profile.first_name + ' ' + profile.last_name,
+        //  name: profile.first_name + ' ' + profile.last_name,
          token: token,
          tokenSecret: tokenSecret
      };
