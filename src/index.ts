@@ -8,6 +8,7 @@ import { init_db } from './lib/db'
 import browserRouter from './routes/browser'
 import authRouter from './routes/auth';
 import { ensureAuthenticated } from './middleware/is_auth';
+import { UsosUser } from './lib/passport';
 
 const app = express(); 
 const port = 3000;
@@ -30,7 +31,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((user: any, done) => done(null, user));
+passport.deserializeUser((user: UsosUser, done) => done(null, user));
 
 app.use('/auth', authRouter);
 app.use(ensureAuthenticated);
