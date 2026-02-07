@@ -7,8 +7,8 @@
 
 <div>
     <img src="https://img.shields.io/badge/gluten-free-lightgreen" />
-    <img src="https://img.shields.io/badge/powered_by-wydzial elektryczny-orange" />
-    <img src="https://img.shields.io/badge/trans-rights-lightblue" />
+    <img src="https://img.shields.io/badge/powered_by-wydzial elektryczny-FFD630" />
+    <img src="https://img.shields.io/badge/trans-rights-pink?labelColor=lightblue" />
 </div>
 
 
