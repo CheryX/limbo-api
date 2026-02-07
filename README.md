@@ -1,8 +1,9 @@
 
 <div align="center">
-    <img src="https://akinom.dev/limbo_full.svg" width="250" /> 
 
-<br />
+  <p>
+    <img src="https://akinom.dev/limbo_full.svg" width="250" /> 
+  </p>
 
 <div>
     <img src="https://img.shields.io/badge/gluten-free-lightgreen" />
