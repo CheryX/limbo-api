@@ -3,15 +3,23 @@ import 'dotenv/config';
 import session from 'express-session';
 import passport from 'passport';
 import './lib/passport';
+import cors from 'cors'
 
 import { init_db } from './lib/db'
 import browserRouter from './routes/browser'
 import authRouter from './routes/auth';
+import fileRouter from './routes/file';
 import { ensureAuthenticated } from './middleware/is_auth';
 import { UsosUser } from './lib/passport';
 
 const app = express(); 
 const port = 3000;
+
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -39,11 +47,7 @@ app.use(ensureAuthenticated);
 // Under this line, all routes require authentication!
 
 app.use('/browser', browserRouter)
-
-// GET /files/:file - Download a file
-// POST /files/:dir?name= - Upload a file to directory
-// DELETE /files/:file - Delete a file
-// PUT /files/:file?new_name= - Rename a file
+app.use('/file', fileRouter)
 
 // User Management Endpoints
 
@@ -57,6 +61,5 @@ app.use('/browser', browserRouter)
 
 app.listen(port, () => {
   console.log(`The void appears on http://localhost:${port}`)
-
-  init_db();
+  // init_db();
 })

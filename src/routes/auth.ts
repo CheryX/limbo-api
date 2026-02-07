@@ -27,7 +27,10 @@ router.get('/callback',
     const defaultPermissions = DEFAULT;
 
     if (req.user)
-      query("INSERT INTO users (id, username, permissions) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING;", [parseInt(req.user.id), req.user.id, defaultPermissions]);
+      query(
+        `INSERT INTO users (id, username, permissions) 
+        VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING;`, 
+        [ parseInt(req.user.id), req.user.id, defaultPermissions ]);
 
     res.redirect('/');
   }
@@ -35,7 +38,6 @@ router.get('/callback',
 
 router.get('/me', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-
 
   res.json(req.user);
 });
