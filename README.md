@@ -1,12 +1,15 @@
 
 <div align="center">
-    <img src="https://akinom.dev/limbo_full.svg" width="250" style="margin-bottom: 10px;" />
+    <img src="https://akinom.dev/limbo_full.svg" width="250" /> 
+
+<br />
 
 <div>
     <img src="https://img.shields.io/badge/gluten-free-lightgreen" />
     <img src="https://img.shields.io/badge/powered_by-wydzial elektryczny-orange" />
     <img src="https://img.shields.io/badge/trans-rights-lightblue" />
 </div>
+
 
 </div>
 
