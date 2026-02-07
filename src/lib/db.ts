@@ -11,13 +11,8 @@ const pool = new Pool({
 });
 
 export default async function query(text: string, params: any[] = []) {
-    try {
-        const res = await pool.query(text, params);
-        return res.rows;
-    } catch (err) {
-        console.error('Query Error:', err);
-        return -1;
-    }
+    const res = await pool.query(text, params);
+    return res.rows;
 }
 
 export async function init_db() {

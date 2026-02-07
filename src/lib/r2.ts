@@ -1,12 +1,13 @@
-import { S3 } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, S3 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { Readable } from "stream";
 import DB from "./db";
+import { randomUUID } from "crypto";
 
 let s3Client: S3 | null = null;
 const BUCKET_NAME = process.env.BUCKET_NAME || "limbo-bucket";
 
-function getS3Client() {
+function getS3Client(): S3 {
     if (!s3Client) {
         s3Client = new S3({
             endpoint: `https://${process.env.ACCOUNT_ID}.eu.r2.cloudflarestorage.com`,
@@ -20,49 +21,130 @@ function getS3Client() {
     return s3Client;
 }
 
-export const r2Client = getS3Client();
-
 export async function getFile(key: string) {
-    if (!s3Client) s3Client = getS3Client();
+    const client = getS3Client();
 
-    if (await fileExists(key)) 
-        return await s3Client.getObject({ Bucket: BUCKET_NAME, Key: key });
-
-    return -1;
+    return await client.getObject({ 
+        Bucket: BUCKET_NAME, 
+        Key: key
+    });
 }
 
-export async function uploadFile(key: string, body: Readable, contentType: string) {
+export async function uploadFile(
+    userId: string, 
+    fileName: string, 
+    filePath: string,
+    fileSize: number, 
+    body: Readable, 
+    contentType: string
+) {
     const client = getS3Client();
-    
-    const parallelUploads3 = new Upload({
+    const uuid = randomUUID();
+
+    const parallelUploadS3 = new Upload({
         client,
         params: { 
             Bucket: BUCKET_NAME, 
-            Key: key, 
+            Key: uuid,
             Body: body,
             ContentType: contentType 
         },
-        queueSize: 4, 
-        partSize: 1024 * 1024 * 5, 
     });
 
-    return await parallelUploads3.done();
+    await parallelUploadS3.done();
+
+    const query = `
+        INSERT INTO files (key, user_id, name, size, path, visible)
+        VALUES ($1, $2, $3, $4, $5, $6)
+    `;
+    const values = [uuid, userId, fileName, fileSize, filePath, 1];
+
+    await DB(query, values);
+    return { key: uuid, path: filePath };
 }
 
-export async function fileExists(key: string) {
-    if (!s3Client) s3Client = getS3Client();
+import { HeadObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+export async function fileExists(key: string): Promise<boolean> {
+    const client = getS3Client();
+
     try {
-        await s3Client.headObject({ Bucket: BUCKET_NAME, Key: key });
+        const result = await DB(`SELECT path FROM files WHERE key = $1`, [key]);
+        if (!result || result.length === 0) return false;
+
+        const filePath = result[0].path;
+
+        await client.send(new HeadObjectCommand({ 
+            Bucket: BUCKET_NAME, 
+            Key: filePath 
+        }));
+        
         return true;
-    } catch (_error) {
+    } catch (error: any) {
         return false;
     }
 }
 
-export async function renameFile(oldKey: string, newKey: string) {
-    if (!s3Client) s3Client = getS3Client();
+export async function renameFile(key: string, newFileName: string) {
+    const query = `UPDATE files SET name = $1 WHERE key = $2`;
+    await DB(query, [newFileName, key]);
+}
 
-    const query = `UPDATE files SET filepath = $1 WHERE filepath = $2`;
-    const values = [newKey, oldKey];
-    await DB(query, values);
+export async function deleteFile(key: string) {
+    const client = getS3Client();
+
+    const findQuery = `SELECT path FROM files WHERE key = $1`;
+    const result = await DB(findQuery, [key]);
+
+    if (!result || result.length === 0) {
+        return { success: false, message: "File not found in database" };
+    }
+
+    const filePath = result[0].path;
+
+    await client.send(new DeleteObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: filePath
+    }));
+
+    const deleteQuery = `DELETE FROM files WHERE key = $1`;
+    await DB(deleteQuery, [key]);
+}
+
+export async function getKeyByPathAndName(filePath: string, fileName: string): Promise<any> {
+    const query = `SELECT key FROM files WHERE path = $1 AND name = $2 LIMIT 1`;
+    
+    const result = await DB(query, [filePath, fileName]);
+
+    if (result && result.length > 0) {
+        return result[0].key;
+    }
+}
+
+export async function getDownloadUrl(key: string, seconds: number = 900) {
+    const client = getS3Client();
+
+    const result = await DB(
+        `SELECT name FROM files WHERE key = $1`, 
+        [key]
+    );
+
+    if (!result || result.length === 0) return null;
+
+    const { name } = result[0];
+
+    const command = new GetObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: key,
+        ResponseContentDisposition: `attachment; filename="${encodeURIComponent(name)}"`
+    });
+
+    try {
+        const url = await getSignedUrl(client, command, { expiresIn: seconds });
+        return url;
+    } catch (error) {
+        console.error("Błąd podczas generowania Signed URL:", error);
+        return null;
+    }
 }

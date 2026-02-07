@@ -1,74 +1,105 @@
-// GET /file/:dir - Download a file
-// POST /file/:dir - Upload a file to directory
-// DELETE /file/:file - Delete a file
-// PUT /file/:file?new_name= - Rename a file
+// GET /file/:path/:filename - Get download link
+// POST /file/:path - Upload a file to directory
+// DELETE /file/:path/:filename - Delete a file
+// PUT /file/:path/:filename?new_name= - Rename a file
 
 import express, { Router } from 'express';
-import { getFile, uploadFile } from '../lib/r2';
-import query from '../lib/db';
+import { deleteFile, getDownloadUrl, getKeyByPathAndName, renameFile, uploadFile } from '../lib/r2';
 import busboy from 'busboy'
+import { UsosUser } from '../lib/passport';
 
 export const router: Router = express.Router()
 
-router.get("/:dir", async (req, res) => {
+router.get("/:path/:filename", async (req, res) => {
+    try {
+        const { path, filename } = req.params;
+        
+        const uuid = await getKeyByPathAndName(path, filename);
 
-    const dir = req.params.dir;
-    const file = await getFile(dir);
+        if (!uuid)
+            return res.status(404).json({ error: "File not found in database" });
 
-    if (file == -1 || !file.Body) {
-        return res.status(404).json({ error: "File not found" });
+        const downloadUrl = await getDownloadUrl(uuid);
+
+        if (!downloadUrl)
+            return res.status(404).json({ error: "File not found in storage" });
+
+        res.redirect(downloadUrl);
+    } catch (err) {
+        res.status(500).json({ error: "Error retrieving file" });
     }
+});
 
-    const file_name_res = await query(
-        "SELECT * FROM files WHERE filepath = ($1)", [dir]);
-
-    if (file_name_res == -1) {
-        throw new Error(`Files "${dir} not found on database."`)
-    }
-    
-    res.header('Content-Type', file.ContentType || 'application/octet-stream')
-    res.header('Content-Disposition', `attachment; filename="${file_name_res[0].replace(/"/g, '\\"')}"`)
-    res.header('ETag', file.ETag)
-
-    res.send(file.Body);
-
-})
-
-router.post("/:dir", async (req, res) => {
+router.post("/:path", async (req, res) => {
     const bb = busboy({ headers: req.headers });
-    const dir = req.params.dir;
+    const filePath = req.params.path;
+    const userId = (req.user as UsosUser).id;
 
-    bb.on('file', async (name, file, info) => {
+    let size = 0;
+    bb.on('data', (chunk) => {
+        size += chunk.length;
+    });
+
+    bb.on('file', async (name, fileStream, info) => {
         const { filename, mimeType } = info;
-        const filePath = `${dir}`;
-        let size = 0;
-
-        file.on('data', (chunk) => {
-            size += chunk.length;
-        });
-
-        const key = crypto.randomUUID()
-
+        
         try {
-            await uploadFile(key, file, mimeType);
-
-            await query(
-                "INSERT INTO files (key, filename, filepath, size) VALUES ($1, $2, $3, $4)",
-                [key, filename, filePath, size]
+            const result = await uploadFile(
+                userId, filename, filePath, size,
+                fileStream, mimeType
             );
 
-            res.status(201).json({ message: "Upload successful", path: filePath });
+            res.status(201).json({ 
+                message: "Upload successful", 
+                key: result.key,
+                path: result.path 
+            });
         } catch (err) {
-            console.log(err)
-            res.status(500).json({ error: "Upload failed" });
+            console.error(err);
+            if (!res.headersSent) res.status(500).json({ error: "Upload failed" });
         }
     });
 
-    bb.on('error', (err: Error) => {
-        res.status(500).json({ error: err.message });
-    });
-
     req.pipe(bb);
+});
+
+router.delete("/:path/:filename", async (req, res) => {
+    try {
+        const { path, filename } = req.params;
+        const uuid = await getKeyByPathAndName(path, filename);
+
+        if (!uuid) {
+            return res.status(404).json({ error: "File not found" });
+        }
+
+        await deleteFile(uuid);
+        res.json({ message: "File deleted successfully" });
+    } catch (err) {
+        res.status(500).json({ error: "Delete failed" });
+    }
+});
+
+router.put("/:path/:filename", async (req, res) => {
+    try {
+        const { path, filename } = req.params;
+        const newName = req.query.new_name as string;
+
+        if (!newName) {
+            return res.status(400).json({ error: "Missing new_name parameter" });
+        }
+
+        const uuid = await getKeyByPathAndName(path, filename);
+
+        if (!uuid) {
+            return res.status(404).json({ error: "File not found" });
+        }
+
+        await renameFile(uuid, newName);
+        
+        res.json({ message: "File renamed successfully" });
+    } catch (err) {
+        res.status(500).json({ error: "Rename failed" });
+    }
 });
 
 export default router;
