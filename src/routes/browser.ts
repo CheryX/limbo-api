@@ -6,24 +6,36 @@
 import express, { Router } from 'express';
 import query from '../lib/db';
 import { randomUUID } from 'crypto';
-import { UsosUser } from '../lib/passport';
+import { Permission } from '../lib/permissions';
+import { hasPermission } from '../middleware/is_auth';
 
 export const router: Router = express.Router();
 
-router.get('/:dir', async (req, res) => {
+router.get('/:dir', hasPermission(Permission.VIEW_ASSETS), async (req, res) => {
     const dir = req.params.dir;
-    const contents = await query("SELECT * FROM files WHERE path = $1;", [dir]);
+    const userId = req.user?.id;
+
+    const contents = await query(
+        `SELECT * FROM files 
+         WHERE path = $1 
+         AND name != '.placeholder' 
+         AND (visible = 1 OR user_id = $2);`, 
+        [dir, userId]
+    );
+
     res.json(contents);
 });
 
-router.post('/:dir', async (req, res) => {
+router.post('/:dir', hasPermission(Permission.ADD_ASSETS_TO_APPROVAL), async (req, res) => {
     const dir = req.params.dir;
     const key = randomUUID();
-    const userId = (req.user as UsosUser).id;
+
+    const userId = req.user?.id;
+    const visibility = req.user?.pm.has(Permission.CREATE_WITHOUT_APPROVAL) ? 1 : 0;
 
     await query(
         "INSERT INTO files (key, user_id, name, size, path, visible) VALUES ($1, $2, $3, $4, $5, $6);",
-        [key, userId, '.placeholder', 0, dir, 1]
+        [key, userId, '.placeholder', 0, dir, visibility]
     );
 
     res.status(201).json({ message: `Created directory: ${dir}`, key });

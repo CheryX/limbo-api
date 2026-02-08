@@ -10,7 +10,8 @@ import browserRouter from './routes/browser'
 import authRouter from './routes/auth';
 import fileRouter from './routes/file';
 import { ensureAuthenticated } from './middleware/is_auth';
-import { UsosUser } from './lib/passport';
+import { UsosUser } from './types/global';
+import { PermissionManager } from './lib/permissions';
 
 const app = express(); 
 const port = 3000;
@@ -39,7 +40,10 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((user: UsosUser, done) => done(null, user));
+passport.deserializeUser((user: UsosUser, done) => {
+  user.pm = new PermissionManager(user.permissions);
+  done(null, user);
+});
 
 app.use('/auth', authRouter);
 app.use(ensureAuthenticated);
@@ -61,5 +65,5 @@ app.use('/file', fileRouter)
 
 app.listen(port, () => {
   console.log(`The void appears on http://localhost:${port}`)
-  // init_db();
+  init_db();
 })
